@@ -25,14 +25,23 @@ export function createUIBindings(els) {
   // ── 模式 Tab ──────────────────────────────
   const tabCamera = document.getElementById("tabCamera");
   const tabUpload = document.getElementById("tabUpload");
+  const tabDashboard = document.getElementById("tabDashboard");
   const uploadPanel = document.getElementById("uploadPanel");
+  const dashboardApp = document.getElementById("dashboardApp");
   const recordStatus = els.recordStatus;
 
   function _setMode(mode) {
     const isCamera = mode === "camera";
+    const isDashboard = mode === "dashboard";
+    const isUpload = mode === "upload";
+
     tabCamera.classList.toggle("active", isCamera);
-    tabUpload.classList.toggle("active", !isCamera);
-    uploadPanel.style.display = isCamera ? "none" : "block";
+    tabUpload.classList.toggle("active", isUpload);
+    if (tabDashboard) tabDashboard.classList.toggle("active", isDashboard);
+
+    if (uploadPanel) uploadPanel.style.display = isUpload ? "block" : "none";
+    if (dashboardApp) dashboardApp.style.display = isDashboard ? "block" : "none";
+
     // 摄像头模式才显示"自动录制"
     if (recordStatus) recordStatus.style.display = isCamera ? "" : "none";
     // 摄像头模式显示开始/停止；视频模式隐藏（上传后自动开始）
@@ -43,6 +52,7 @@ export function createUIBindings(els) {
 
   tabCamera.addEventListener("click", () => _setMode("camera"));
   tabUpload.addEventListener("click", () => _setMode("upload"));
+  if (tabDashboard) tabDashboard.addEventListener("click", () => _setMode("dashboard"));
 
   // 初始隐藏上传面板
   uploadPanel.style.display = "none";
@@ -160,24 +170,24 @@ export function createUIBindings(els) {
       els.deductionList.appendChild(li);
     }
 
-    // issues
+    // explanations (from NAM Engine instead of local heuristic issues)
     els.issueList.innerHTML = "";
-    const list = Array.isArray(issues) ? issues.slice(0, 10) : [];
+    const list = Array.isArray(payload.nam_explanations) ? payload.nam_explanations : [];
     if (list.length === 0) {
       const li = document.createElement("li");
       li.innerHTML =
-        '<div class="issuesTitle">等待挥杆...</div><div class="issuesDesc">录制并识别挥杆后显示。</div>';
+        '<div class="issuesTitle">等待挥杆...</div><div class="issuesDesc">录制并上传挥杆后显示 NAM 分析结果。</div>';
       els.issueList.appendChild(li);
     } else {
       for (const item of list) {
         const li = document.createElement("li");
         const title = document.createElement("div");
         title.className = "issuesTitle";
-        title.textContent = item.label;
+        // featureKey can act as title
+        title.textContent = item.featureKey || "诊断说明";
         const desc = document.createElement("div");
         desc.className = "issuesDesc";
-        desc.textContent =
-          item.confidence != null ? `置信度: ${(item.confidence * 100).toFixed(1)}%` : "";
+        desc.textContent = item.diagnosticText || "";
         li.appendChild(title);
         li.appendChild(desc);
         els.issueList.appendChild(li);
@@ -250,12 +260,24 @@ export function createUIBindings(els) {
 
   return {
     onStart(cb) {
-      onStartCb = cb;
-      setStartEnabled(false);
+      onStartCb = async (config) => {
+        setStartEnabled(false);
+        try {
+          await cb(config);
+        } catch (e) {
+          setStartEnabled(true);
+          throw e;
+        }
+      };
     },
     onStop(cb) {
-      onStopCb = cb;
-      setStartEnabled(true);
+      onStopCb = async () => {
+        try {
+          await cb();
+        } finally {
+          setStartEnabled(true);
+        }
+      };
     },
     onModeSwitch(cb) {
       onModeSwitchCb = cb;

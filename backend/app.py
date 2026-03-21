@@ -7,8 +7,7 @@ import uuid
 from core.datatypes import SwingPhase, KeyFrameData, BBox, Point2D, EngineContext
 from core.feature_router import extract_flattened_features
 from core.pose_estimator import process_video
-from core.swing_analyzer import analyze_swing
-from core.scoring_engine import score_from_issues
+from core.phase_detector import detect_phases
 import os
 import tempfile
 from fastapi import Form
@@ -56,33 +55,70 @@ async def analyze_video(
                 "message": "未能从视频中提取到足够的有效动作帧"
             }
 
-        # 4. 取最后一帧或代表性帧作 raw_landmarks/analysis_landmarks
-        final_frame_landmarks = history[-1]['landmarks']
-        
-        # 5. 分析挥杆
-        base_result = analyze_swing(
-            raw_landmarks=final_frame_landmarks,
-            analysis_landmarks=final_frame_landmarks,
-            history=history,
-            view=view,
-            handedness=handedness,
-            club_type=clubType
-        )
-        
-        if not base_result.get("ready"):
+        # 4. PhaseDetector: 从平滑稠密序列中提取 8 个关键帧
+        keyframes = detect_phases(history)
+        if len(keyframes) != 8:
             return {
-                "status": "success",
-                "python_pipeline_results": base_result
+                "status": "error",
+                "message": f"未能成功提取出8个动作阶段 (提取了 {len(keyframes)} 个)"
             }
 
-        # 6. 打分
-        scored_result = score_from_issues(base_result.get("issues", []))
+        # 5. 特征路由: 循环 8 张图提取 40 维空间特征
+        context = EngineContext()
+        extracted_features = {}
+        for frame in keyframes:
+            flat_feats = extract_flattened_features(frame, context)
+            extracted_features.update(flat_feats)
         
-        # 合并结果
-        final_result = {**base_result, **scored_result}
+        # 6. NAM 引擎预留 (模拟根据 40 维特征推导的 Explanations 和 Score)
+        # 这里模拟下 NAM 模型产出的结果，实际开发中调用 `spiscorer` 和 `namexplainer`
+        nam_explanations = []
+        if "ADDRESS_STANCE_RATIO" in extracted_features:
+            nam_explanations.append({
+                "featureKey": "ADDRESS_STANCE_RATIO",
+                "diagnosticText": f"检测到您的站位比为 {extracted_features['ADDRESS_STANCE_RATIO']:.2f}，表现良好。"
+            })
+        if "SPI_IMPACT_VELOCITY" in extracted_features:
+             nam_explanations.append({
+                 "featureKey": "SPI_IMPACT_VELOCITY",
+                 "diagnosticText": f"击球瞬时骨盆闭合角速度估算值为 {extracted_features['SPI_IMPACT_VELOCITY']:.1f} 度/秒。"
+             })
+        
+        # 将 40 维英文特征名映射为中文，供指标面板使用
+        feature_zh_map = {
+            "ADDRESS_STANCE_RATIO": "准备姿势-站位比例",
+            "ADDRESS_SHOULDER_ANGLE": "准备姿势-肩部倾角",
+            "TOP_LEFT_ARM_ANGLE": "上杆顶点-左臂角度",
+            "TOP_SHOULDER_ROTATION_THETA": "上杆顶点-肩部旋转",
+            "IMPACT_HIP_ROTATION_THETA": "击球瞬间-髋部旋转",
+            "SPI_IMPACT_VELOCITY": "击球瞬间-骨盆角速度(度/秒)"
+        }
+        metrics_zh = {}
+        for k, v in extracted_features.items():
+            metrics_zh[feature_zh_map.get(k, k)] = v
 
-        # 7. (可选) 继续保留原有的 feature_router / mock_nam_explanations 流程
-        # 为了兼容前面的 Mock UI, 原代码在此处有一些 extracted_features 和 nam_explanations
+        # 为了防止浏览器缓存仍旧读取原版的 `issues` 字段以及图文渲染的 `explanationKey`
+        # 利用由 NAM 产生的 nam_explanations 反向填充这些旧结构
+        issues_bridge = []
+        primary_explanation_key = "GOOD_POSTURE" # 默认值
+        if len(nam_explanations) > 0:
+            primary_explanation_key = nam_explanations[0].get("featureKey", "GOOD_POSTURE")
+            for n in nam_explanations:
+                issues_bridge.append({
+                    "label": n.get("diagnosticText", ""),
+                    "confidence": 1.0
+                })
+        
+        # 组装返回给前端渲染的统一体
+        final_result = {
+            "extracted_features": extracted_features,
+            "nam_explanations": nam_explanations,
+            "issues": issues_bridge, # 为了兼容未清除缓存的旧版前端
+            "score": 85, # mock NAM Score
+            "fullHistory": history,
+            "metrics": metrics_zh, # 使用中文 Key 的指标面板
+            "explanationKey": primary_explanation_key # 指定在「图文+视频解释」弹出的解释文案 ID
+        }
 
         process_time_ms = int((time.time() - start_time) * 1000)
 

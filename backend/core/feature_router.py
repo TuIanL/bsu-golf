@@ -1,5 +1,5 @@
 from typing import Dict
-from .datatypes import KeyFrameData, EngineContext, SwingPhase, FlattenedFeatures
+from .datatypes import KeyFrameData, EngineContext, SwingPhase, FlattenedFeatures, Point2D
 from .geometry import calculate_distance, calculate_global_angle, calculate_angle_3pt, estimate_pseudo_3d_rotation
 
 def extract_flattened_features(frame: KeyFrameData, context: EngineContext) -> FlattenedFeatures:
@@ -28,6 +28,21 @@ def extract_flattened_features(frame: KeyFrameData, context: EngineContext) -> F
         # 骨盆最大宽度基准
         hip_width = calculate_distance(joints["left_hip"], joints["right_hip"])
         context.max_hip_width_address = max(context.max_hip_width_address, hip_width)
+        
+        # 记录头部锚点 (以鼻子为基准，若无则取左右耳中点，再退化为左右眼中点)
+        if "nose" in joints:
+            context.address_head_pos = Point2D(x=joints["nose"].x, y=joints["nose"].y)
+        elif "left_ear" in joints and "right_ear" in joints:
+            context.address_head_pos = Point2D(
+                x=(joints["left_ear"].x + joints["right_ear"].x) / 2, 
+                y=(joints["left_ear"].y + joints["right_ear"].y) / 2
+            )
+            
+        # 记录髋部中心锚点
+        context.address_hip_center = Point2D(
+            x=(joints["left_hip"].x + joints["right_hip"].x) / 2,
+            y=(joints["left_hip"].y + joints["right_hip"].y) / 2
+        )
         
         flat_features["ADDRESS_STANCE_RATIO"] = stance_width / context.max_shoulder_width_address if context.max_shoulder_width_address > 0 else 0
         

@@ -1,6 +1,4 @@
 import { createPoseEstimator } from "./poseEstimator.js";
-import { createSwingAnalyzer } from "./swingAnalyzer.js";
-import { createScoringEngine } from "../scoring/scoringEngine.js";
 
 export async function createPosePipeline({
   overlayCanvas,
@@ -18,34 +16,21 @@ export async function createPosePipeline({
   const estimator = await createPoseEstimator({
     videoEl,
     onResults: (raw, analysisLandmarks, historyInfo) => {
-      const base = analyzer.analyze({
-        rawLandmarks: raw,
-        analysisLandmarks,
-        history: historyInfo.history,
-        view: config.view,
-        handedness: config.handedness,
-        clubType: config.clubType,
-      });
-      if (!base.ready) {
-        onFrame?.({
-          ...base,
-          score: null,
-          deductions: [],
-        });
-        return;
-      }
-
-      const scored = scoring.scoreFromIssues(base.issues);
+      // 在彻底移除前端启发式分析后，我们将不再直接计算 score / issues 等，
+      // 仅回传原始与平滑后的 landmarks 供实时渲染 (如摄像头模式下)。
       onFrame?.({
-        ...base,
-        ...scored,
+        rawLandmarks: raw,
+        analysisLandmarks: analysisLandmarks,
+        history: historyInfo.history,
+        score: null,
+        deductions: [],
+        issues: [],
+        metrics: {},
+        ready: true,
       });
     },
     onLatency: (ms) => onLatency?.(ms),
   });
-
-  const analyzer = createSwingAnalyzer();
-  const scoring = createScoringEngine();
 
   let running = false;
   let isVideoMode = false;
@@ -54,7 +39,6 @@ export async function createPosePipeline({
     if (running) return;
     running = true;
     onRecorderState?.("录制中");
-    analyzer.reset();
     estimator.setVideoMode(isVideoMode);
     estimator.start();
   }

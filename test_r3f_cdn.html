@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>React Three Fiber CDN Test</title>
+    <style>
+        body { margin: 0; width: 100vw; height: 100vh; background: #080c15; color: white; }
+        #root { width: 100%; height: 100%; }
+    </style>
+    <!-- Import Map for bundling resolution -->
+    <script type="importmap">
+    {
+      "imports": {
+        "react": "https://esm.sh/react@18?external=three",
+        "react-dom": "https://esm.sh/react-dom@18?external=three",
+        "react-dom/client": "https://esm.sh/react-dom@18/client?external=three",
+        "three": "https://esm.sh/three@0.160",
+        "@react-three/fiber": "https://esm.sh/@react-three/fiber@8?external=react,react-dom,three"
+      }
+    }
+    </script>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="module">
+        import React from 'react';
+        import ReactDOM from 'react-dom/client';
+        import { Canvas } from '@react-three/fiber';
+
+        function Box(props) {
+            const meshRef = React.useRef();
+            const [hovered, setHover] = React.useState(false);
+
+            return (
+                <mesh
+                    {...props}
+                    ref={meshRef}
+                    scale={hovered ? 1.5 : 1}
+                    onClick={() => console.log('click')}
+                    onPointerOver={() => setHover(true)}
+                    onPointerOut={() => setHover(false)}>
+                    <boxGeometry args={[1, 1, 1]} />
+                    <meshStandardMaterial color={hovered ? '#ff7a00' : '#00f3ff'} />
+                </mesh>
+            );
+        }
+
+        function App() {
+            return (
+                <Canvas camera={{ position: [0, 0, 3] }}>
+                    <ambientLight intensity={0.5} />
+                    <pointLight position={[10, 10, 10]} />
+                    <Box position={[0, 0, 0]} />
+                </Canvas>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(React.createElement(App));
+    </script>
+</body>
+</html>

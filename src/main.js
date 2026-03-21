@@ -132,10 +132,9 @@ async function main() {
         await camera.stop();
         ui.setCameraStatus("摄像头未启动");
       } catch (_) { /* 未运行时忽略 */ }
-    } else {
+    } else if (currentMode === "upload") {
       videoUpload.stop();
       ui.hideProgress();
-      ui.setCameraStatus("等待上传视频");
     }
 
     currentMode = mode;
@@ -144,6 +143,10 @@ async function main() {
     if (mode === "upload") {
       els.video.classList.add("noMirror");
       ui.setCameraStatus("请上传视频文件");
+    } else if (mode === "dashboard") {
+      ui.setCameraStatus("大屏显示中");
+      // 可以在此处通知 React 开启
+      window.dispatchEvent(new CustomEvent("golf_dashboard_active"));
     } else {
       els.video.classList.remove("noMirror");
       ui.setCameraStatus("摄像头未启动");
@@ -179,6 +182,12 @@ async function main() {
         const result = await uploadVideoToBackend(file, config);
         backendData = result.python_pipeline_results;
         ui.setAnalysisStatus("后端分析完成，构建视图中...");
+
+        // 🌉 桥接：将数据派发给 React 赛博大屏
+        if (backendData) {
+          window.__DASHBOARD_DATA__ = backendData;
+          window.dispatchEvent(new CustomEvent("golf_dashboard_data", { detail: backendData }));
+        }
       } catch (err) {
         console.error("Backend Error:", err);
         ui.setCameraStatus(`后端服务连接失败: ${err.message}`);

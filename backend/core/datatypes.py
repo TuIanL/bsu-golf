@@ -43,6 +43,8 @@ class EngineContext:
     prev_hip_rotation_theta: Optional[float] = None
     prev_shoulder_rotation_theta: Optional[float] = None
     prev_timestamp: Optional[float] = None
+    address_head_pos: Optional[Point2D] = None
+    address_hip_center: Optional[Point2D] = None
 
 # 扁平化的 40 维特征字典别名
 FlattenedFeatures = Dict[str, float]

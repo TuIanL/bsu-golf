@@ -3,6 +3,7 @@ import mediapipe as mp
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 import os
+from .filter import smooth_dense_sequence
 
 def process_video(video_path: str) -> list:
     """
@@ -35,11 +36,9 @@ def process_video(video_path: str) -> list:
     if fps <= 0:
         fps = 30.0
     
-    alpha = 0.65
-    smoothed = None
     history = []
-
     frame_idx = 0
+
     while True:
         ret, frame = cap.read()
         if not ret:
@@ -68,23 +67,10 @@ def process_video(video_path: str) -> list:
                 } for p in raw_landmarks
             ]
 
-            if smoothed is None:
-                smoothed = landmarks
-            else:
-                smoothed = [
-                    {
-                        'x': prev['x'] * alpha + curr['x'] * (1 - alpha),
-                        'y': prev['y'] * alpha + curr['y'] * (1 - alpha),
-                        'z': prev['z'] * alpha + curr['z'] * (1 - alpha),
-                        'visibility': prev['visibility'] * alpha + curr.get('visibility', 1.0) * (1 - alpha)
-                    }
-                    for prev, curr in zip(smoothed, landmarks)
-                ]
-            
             # Keep limit to 600 frames to avoid memory issues (same as JS)
             history.append({
                 't': frame_time_ms,
-                'landmarks': list(smoothed)  # copy just in case
+                'landmarks': landmarks
             })
             if len(history) > 600:
                 history.pop(0)
@@ -94,4 +80,7 @@ def process_video(video_path: str) -> list:
     cap.release()
     detector.close() # Close detector to release resources
 
-    return history
+    # Apply Savitzky-Golay dense filtering sequentially
+    smoothed_history = smooth_dense_sequence(history, window_size=11, polyorder=2)
+
+    return smoothed_history
