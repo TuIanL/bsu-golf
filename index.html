@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>高尔夫挥杆实时识别 MVP</title>
+    <link rel="stylesheet" href="./src/styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar">
+        <h1>高尔夫挥杆实时识别 MVP</h1>
+        <div class="controls">
+          <label>
+            球杆
+            <select id="clubSelect">
+              <option value="wood">木杆</option>
+              <option value="iron">铁杆</option>
+              <option value="wedge">挖起杆</option>
+            </select>
+          </label>
+          <label>
+            视角
+            <select id="viewSelect">
+              <option value="front">正面</option>
+              <option value="side">侧面</option>
+            </select>
+          </label>
+          <label>
+            持杆手
+            <select id="handednessSelect">
+              <option value="right">右手</option>
+              <option value="left">左手</option>
+            </select>
+          </label>
+          <button id="startBtn">开始检测</button>
+          <button id="stopBtn" disabled>停止</button>
+        </div>
+      </header>
+
+      <!-- 模式切换 Tab -->
+      <div class="modeTabs">
+        <button class="modeTab active" id="tabCamera">📷 实时摄像头</button>
+        <button class="modeTab" id="tabUpload">📁 上传视频</button>
+      </div>
+
+      <main class="layout">
+        <section class="cameraPanel">
+          <div class="videoWrap">
+            <video id="video" playsinline muted></video>
+            <canvas id="overlay"></canvas>
+          </div>
+          <div class="status">
+            <span id="cameraStatus">摄像头未启动</span>
+            <span id="latencyStatus">延迟: -</span>
+            <span id="recordStatus" class="cameraOnly">自动录制: 待机</span>
+          </div>
+
+          <!-- 上传视频专属控件（默认隐藏） -->
+          <div class="uploadPanel" id="uploadPanel">
+            <label class="dropZone" id="dropZone">
+              <input type="file" id="videoFileInput" accept="video/*" hidden />
+              <span class="dropIcon">🎬</span>
+              <span class="dropText">点击或拖拽视频文件到此处</span>
+              <span class="dropSub">支持 MP4 / WebM / MOV 格式</span>
+            </label>
+            <div class="progressRow" id="progressRow" style="display:none">
+              <span id="analysisStatusText">分析中...</span>
+              <div class="progressBarWrap">
+                <div class="progressBarFill" id="progressBarFill"></div>
+              </div>
+              <span id="progressTimeText">0:00 / 0:00</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="resultPanel">
+          <div class="scoreCard">
+            <h2>实时评分</h2>
+            <p class="score"><span id="scoreValue">--</span>/100</p>
+            <ul id="deductionList"></ul>
+          </div>
+
+          <div class="metricsGrid" id="metricsGrid"></div>
+
+          <div class="issuesCard">
+            <h3>问题识别（Top10）</h3>
+            <ul id="issueList"></ul>
+          </div>
+        </section>
+      </main>
+
+      <section class="bottom">
+        <div class="chartCard">
+          <h3>轨迹与重心可视化</h3>
+          <canvas id="trajectoryCanvas" width="720" height="220"></canvas>
+        </div>
+        <div class="explainCard">
+          <h3>图文 + 视频解释</h3>
+          <div id="explanation"></div>
+        </div>
+      </section>
+    </div>
+
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>
