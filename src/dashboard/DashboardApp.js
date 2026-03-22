@@ -1,6 +1,6 @@
 import React from 'react';
-import ReactDOM from 'react-dom/client';
-import { Canvas } from '@react-three/fiber';
+import { createRoot } from 'react-dom/client';
+import { Canvas, useFrame } from '@react-three/fiber';
 import htm from 'https://esm.sh/htm';
 
 const html = htm.bind(React.createElement);
@@ -8,17 +8,20 @@ const html = htm.bind(React.createElement);
 // ── 1. 数据桥接与状态挂载 ─────────────────────────
 function useDashboardData() {
     const [data, setData] = React.useState(window.__DASHBOARD_DATA__ || null);
+    const [frameIdx, setFrameIdx] = React.useState(0);
 
     React.useEffect(() => {
         const handleData = (e) => {
             console.log("Dashboard received backend data:", e.detail);
             setData(e.detail);
+            setFrameIdx(0); // 重置到第一帧
         };
         window.addEventListener("golf_dashboard_data", handleData);
         
         const handleActive = () => {
-             // 强制刷一下 state
-             if (window.__DASHBOARD_DATA__) setData(window.__DASHBOARD_DATA__);
+             if (window.__DASHBOARD_DATA__) {
+                 setData(window.__DASHBOARD_DATA__);
+             }
         };
         window.addEventListener("golf_dashboard_active", handleActive);
 
@@ -28,7 +31,7 @@ function useDashboardData() {
         };
     }, []);
 
-    return data;
+    return { data, frameIdx, setFrameIdx };
 }
 
 // ── 2. ECharts 通用 React 包装组件 ─────────────────
@@ -54,26 +57,60 @@ const Chart = ({ option, style }) => {
     return html`<div ref=${chartRef} style=${{ width: '100%', height: '100%', ...style }} />`;
 };
 
-// ── 3. 3D 画布组件 (React Three Fiber) ─────────────
-function Dashboard3D({ history }) {
+// ── 3. 3D 画布组件 旋转子代 ────────────────────────
+// 人体骨骼连接序列
+const SKELETON_CONNECTIONS = [
+    [11, 12], [12, 24], [24, 23], [23, 11], // 躯干
+    [11, 13], [13, 15], [12, 14], [14, 16], // 双臂
+    [23, 25], [25, 27], [24, 26], [26, 28], // 双腿
+    [15, 17], [16, 18], [15, 19], [16, 20]  // 手掌
+];
+
+function Skeleton3D({ landmarks }) {
+    if (!landmarks || landmarks.length === 0) return null;
+
+    // 将 MediaPipe 2D+Z 坐标映射到 3D 空间
+    const getPoint = (idx) => {
+        const pt = landmarks[idx];
+        if (!pt) return [0,0,0];
+        // 缩放并居中，Y 轴向下是 MediaPipe 标准，Three.js Y 轴向上，所以取负
+        return [(pt.x - 0.5) * 800, -(pt.y - 0.5) * 800, (pt.z || 0) * -300];
+    };
+
     return html`
-        <${Canvas} camera=${{ position: [0, 0, 1000], far: 3000 }}>
-            <ambientLight intensity=${0.6} />
-            <pointLight position=${[0, 100, 500]} />
+        <group>
+            <!-- 骨骼节点球心 -->
+            ${[11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28].map(idx => html`
+                <mesh key=${idx} position=${getPoint(idx)}>
+                    <sphereGeometry args=${[8, 16, 16]} />
+                    <meshStandardMaterial color="#00f3ff" emissive="#004455" />
+                </mesh>
+            `)}
+
+            <!-- 骨架连接线暂代方案 (由于 UMD 无 TubeGeometry) 可以使用 Mesh 连结 -->
+            <!-- 如果为了极速，可以使用 3D 空间线。 R3F Canvas 包含默认 BufferGeometryLine  -->
+        </group>
+    `;
+}
+
+function Dashboard3D({ history, currentFrame }) {
+    const landmarks = history?.[currentFrame]?.landmarks || [];
+
+    return html`
+        <${Canvas} camera=${{ position: [0, 0, 800], far: 3000 }}>
+            <ambientLight intensity=${0.5} />
+            <pointLight position=${[0, 200, 500]} intensity=${1.5} color="#ffffff" />
             
-            <gridHelper args=${[2000, 50, '#00f3ff', '#1a2035']} rotation=${[Math.PI / 2, 0, 0]} />
+            <gridHelper args=${[2000, 40, '#00f3ff', '#121a2b']} rotation=${[Math.PI / 2, 0, 0]} />
             
-            <mesh position=${[0,0,0]}>
-                <boxGeometry args=${[120, 120, 120]} />
-                <meshStandardMaterial color="#00f3ff" emissive="#002233" />
-            </mesh>
+            <${Skeleton3D} landmarks=${landmarks} />
         <//>
     `;
 }
 
 // ── 4. 主大屏面板 ─────────────────────────────────
 function DashboardApp() {
-    const data = useDashboardData();
+    const { data, frameIdx, setFrameIdx } = useDashboardData();
     const mockScore = data?.score || 85;
 
     const gaugeOption = {
@@ -84,6 +121,54 @@ function DashboardApp() {
             pointer: { itemStyle: { color: '#ffffff' } },
             detail: { formatter: '{value}', color: '#00f3ff', fontSize: 36, offsetCenter: [0, '70%'] },
             data: [{ value: mockScore }]
+        }]
+    };
+
+    const radarOption = {
+        backgroundColor: 'transparent',
+        radar: {
+            indicator: [
+                { name: '准备-站位比例', max: 5 },
+                { name: '准备-肩部倾角', max: 50 },
+                { name: '顶点-左臂角度', max: 180 },
+                { name: '顶点-肩部旋转', max: 180 },
+                { name: '击球-髋部旋转', max: 180 }
+            ],
+            splitArea: { show: false },
+            splitLine: { lineStyle: { color: 'rgba(0, 243, 255, 0.2)' } },
+            axisLine: { lineStyle: { color: 'rgba(0, 243, 255, 0.2)' } },
+            name: { textStyle: { color: '#88a0b0', fontSize: 10 } }
+        },
+        series: [{
+            type: 'radar',
+            data: [
+                { value: [2.5, 25, 90, 80, 90], name: '标准标准', itemStyle: { color: '#444' }, lineStyle: { type: 'dashed' } },
+                { 
+                    value: [
+                        data?.extracted_features?.["ADDRESS_STANCE_RATIO"] || 0,
+                        data?.extracted_features?.["ADDRESS_SHOULDER_ANGLE"] || 0,
+                        data?.extracted_features?.["TOP_LEFT_ARM_ANGLE"] || 0,
+                        data?.extracted_features?.["TOP_SHOULDER_ROTATION_THETA"] || 0,
+                        data?.extracted_features?.["IMPACT_HIP_ROTATION_THETA"] || 0
+                    ], 
+                    name: '您的数据', itemStyle: { color: '#00f3ff' }, areaStyle: { color: 'rgba(0, 243, 255, 0.15)' } 
+                }
+            ]
+        }]
+    };
+
+    const lineOption = {
+        backgroundColor: 'transparent',
+        grid: { top: '15%', bottom: '20%', left: '8%', right: '5%' },
+        xAxis: {
+            type: 'category', data: ['Address', 'Top', 'Impact', 'Follow'],
+            axisLine: { lineStyle: { color: '#444' } }, axisLabel: { color: '#888', fontSize: 10 }
+        },
+        yAxis: { type: 'value', splitLine: { lineStyle: { color: 'rgba(255,255,255,0.03)' } }, axisLabel: { color: '#888' } },
+        series: [{
+            data: [10, 45, 120, 60], type: 'line', smooth: true, symbol: 'none',
+            lineStyle: { width: 3, color: '#ff7a00', shadowColor: '#ff7a00', shadowBlur: 10 },
+            areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: 'rgba(255, 122, 0, 0.3)' }, { offset: 1, color: 'rgba(255, 122, 0, 0)' }] } }
         }]
     };
 
@@ -99,23 +184,45 @@ function DashboardApp() {
                         const dashboardApp = document.getElementById("dashboardApp");
                         if (dashboardApp) dashboardApp.style.display = "none";
                         const tabCamera = document.getElementById("tabCamera");
-                        if (tabCamera) tabCamera.click(); // 退回首页
+                        if (tabCamera) tabCamera.click();
                     }}>返回旧版</button>
                 </div>
             </header>
 
             <div style=${{ flex: 1, display: 'flex', position: 'relative' }}>
-                <div style=${{ width: '300px', background: 'rgba(0,0,0,0.3)', borderRight: '1px solid rgba(255,255,255,0.05)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <div style=${{ width: '300px', background: 'rgba(0,0,0,0.3)', borderRight: '1px solid rgba(255,255,255,0.05)', padding: '15px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
                     <div style=${{ border: '1px solid rgba(0,243,255,0.2)', padding: '15px', background: 'rgba(0,243,255,0.02)' }}>
-                        <h4 style=${{ margin: '0 0 10px 0', fontSize: '14px', color: '#00f3ff' }}>核心指标 (SPI)</h4>
-                        <div style=${{ height: '160px' }}>
+                        <h4 style=${{ margin: '0 0 10px 0', fontSize: '13px', color: '#00f3ff' }}>核心指标 (SPI)</h4>
+                        <div style=${{ height: '140px' }}>
                             <${Chart} option=${gaugeOption} />
+                        </div>
+                    </div>
+
+                    <div style=${{ border: '1px solid rgba(0,243,255,0.2)', padding: '15px', background: 'rgba(0,243,255,0.02)', flex: 1 }}>
+                        <h4 style=${{ margin: '0 0 10px 0', fontSize: '13px', color: '#00f3ff' }}>生物力学雷达 (Biometrics)</h4>
+                        <div style=${{ height: '220px' }}>
+                            <${Chart} option=${radarOption} />
                         </div>
                     </div>
                 </div>
 
-                <div style=${{ flex: 1, position: 'relative' }}>
-                    <${Dashboard3D} history=${data?.fullHistory || []} />
+                <div style=${{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                    <div style=${{ flex: 1, position: 'relative' }}>
+                        <${Dashboard3D} history=${data?.fullHistory} currentFrame=${frameIdx} />
+                        
+                        <!-- 动态进度条 -->
+                        ${data?.fullHistory?.length > 0 && html`
+                            <div style=${{ position: 'absolute', bottom: '20px', left: '10%', width: '80%', background: 'rgba(0,0,0,0.6)', padding: '10px', borderRadius: '8px', display: 'flex', gap: '10px', alignItems: 'center', backdropFilter: 'blur(4px)' }}>
+                                <div style=${{ color: '#00f3ff', fontSize: '12px' }}>帧: ${frameIdx + 1}/${data.fullHistory.length}</div>
+                                <input type="range" min="0" max=${data.fullHistory.length - 1} value=${frameIdx} onChange=${(e) => setFrameIdx(parseInt(e.target.value))} style=${{ flex: 1, cursor: 'pointer', accentColor: '#00f3ff' }} />
+                            </div>
+                        `}
+                    </div>
+                    
+                    <div style=${{ height: '160px', borderTop: '1px solid rgba(0,243,255,0.1)', background: 'rgba(11,20,35,0.4)', padding: '15px', position: 'relative' }}>
+                        <h4 style=${{ margin: '0 0 5px 0', fontSize: '13px', color: '#ff7a00', position: 'absolute', top: '10px', left: '15px' }}>手腕速度运动学曲线 (Kinematics)</h4>
+                        <${Chart} option=${lineOption} />
+                    </div>
                 </div>
 
                 <div style=${{ width: '350px', background: 'rgba(0,0,0,0.3)', borderLeft: '1px solid rgba(255,255,255,0.05)', padding: '20px' }}>
@@ -137,5 +244,5 @@ function DashboardApp() {
 }
 
 console.log("Mounting Dashboard App to DOM...");
-const root = ReactDOM.createRoot(document.getElementById('dashboardApp'));
+const root = createRoot(document.getElementById('dashboardApp'));
 root.render(React.createElement(DashboardApp));
