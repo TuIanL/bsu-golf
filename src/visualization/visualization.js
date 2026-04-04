@@ -31,7 +31,7 @@ function setCanvasSizeToVideo(canvas, video) {
   }
 }
 
-function getContainRect(canvasW, canvasH, videoEl) {
+export function getContainRect(canvasW, canvasH, videoEl) {
   const vw = videoEl?.videoWidth || 0;
   const vh = videoEl?.videoHeight || 0;
   if (!vw || !vh) {
@@ -97,8 +97,8 @@ function drawOverlay({ canvas, landmarks, mirrored = true, videoEl = null, uploa
 
   const W = canvas.width;
   const H = canvas.height;
-  // Upload mode uses `object-fit: fill`, camera mode uses `cover` (crop).
-  const rect = uploadMode ? { x: 0, y: 0, w: W, h: H } : getCoverRect(W, H, videoEl);
+  // Upload mode uses `object-fit: contain`, camera mode uses `cover` (crop).
+  const rect = uploadMode ? getContainRect(W, H, videoEl) : getCoverRect(W, H, videoEl);
 
   const useMirror = !!mirrored;
 

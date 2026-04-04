@@ -47,7 +47,9 @@ async def analyze_video(
 
     try:
         # 2. 从视频提取动作历史
-        history = process_video(temp_video_path)
+        analysis_data = process_video(temp_video_path)
+        history = analysis_data.get("history", [])
+        fps = analysis_data.get("fps", 30.0)
         
         # 3. 如果没能提取到历史或历史过短，直接返回默认
         if not history or len(history) < 12:
@@ -208,7 +210,7 @@ async def analyze_video(
             "fullHistory": history,
             "metrics": metrics_zh, # 使用中文 Key 的指标面板
             "explanationKey": primary_explanation_key, # 指定在「图文+视频解释」弹出的解释文案 ID
-            "swingTrace": compute_swing_trace(history),  # 挥杆平面轨迹追踪数据
+            "swingTrace": compute_swing_trace(history, fps),  # 包含 points 和 vSlot 
         }
 
         process_time_ms = int((time.time() - start_time) * 1000)

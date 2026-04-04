@@ -110,9 +110,9 @@ export function mountReport(videoId) {
   });
 
   // ── 视频加载后初始化轨迹渲染器 ──────────────
-  const tracePoints = data.swingTrace || [];
+  const swingData = data.swingTrace || { points: [], vSlot: [] };
   video.onloadedmetadata = () => {
-    _swingTracer = createSwingTracer(overlay, video, tracePoints);
+    _swingTracer = createSwingTracer(overlay, video, swingData);
     _updateUI();
   };
 

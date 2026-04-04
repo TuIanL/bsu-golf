@@ -46,7 +46,9 @@ def smooth_dense_sequence(sequence: List[Dict], window_size: int = 11, polyorder
     # 回写至字典序列
     smoothed_sequence = []
     for t_idx, frame in enumerate(sequence):
-        new_frame = {'t': frame.get('t')}
+        # 复制原有的所有字段（包括 clubhead, t 等）
+        new_frame = frame.copy()
+        
         old_lms = frame.get('landmarks', [])
         new_lms = []
         for i in range(num_landmarks):

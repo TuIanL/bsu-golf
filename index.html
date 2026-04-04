@@ -77,7 +77,6 @@
         "react-dom": "https://esm.sh/react-dom@18",
         "react-dom/client": "https://esm.sh/react-dom@18/client",
         "react/jsx-runtime": "https://esm.sh/react@18/jsx-runtime",
-        "react/jsx-dev-runtime": "https://esm.sh/react@18/jsx-dev-runtime",
         "three": "https://esm.sh/three@0.160",
         "@react-three/fiber": "https://esm.sh/@react-three/fiber@8?external=react,react-dom,three"
       }
@@ -244,6 +243,13 @@
                     <p>绿色表示击球后的惯性收杆过程。</p>
                   </div>
                 </div>
+                <div class="legendItem">
+                  <span class="dot vslot"></span>
+                  <div class="legendText">
+                    <strong>平面引导区 (V-Slot Guide)</strong>
+                    <p>由肩平面与杆轴平面构成的绿色夹角区域。理想的下杆轨迹应在这一通道内运行，这是验证挥杆稳定性的关键指标。</p>
+                  </div>
+                </div>
                 <div class="traceTip">
                   <p>💡 提示：观察红蓝线的间距可判断挥杆平面是否稳定，“由外向内”通常表现为红线跨过蓝线。</p>
                 </div>
@@ -291,17 +297,41 @@
         </div>
     </div>
 
-    <script type="module" src="./src/main.js?v=20260329b"></script>
+    <script type="module" src="./src/main.js?v=20260329c"></script>
     <script type="module">
-        (async () => {
-             console.log("尝试动态加载赛博大屏模块...");
-             try {
-                 await import("./src/dashboard/DashboardApp.js?v=" + Date.now());
-                 console.log("赛博大屏模块加载成功!");
-             } catch (err) {
-                 console.error("模块载入崩溃:", err);
-             }
-        })();
+        /**
+         * 🏆 模块鲁棒性加载方案 (Robust Module Loader)
+         * 目的：防止由于 CDN 波动或本地重链导致的动态导入崩溃
+         */
+        const loadDashboard = async () => {
+            console.log("🚀 正在激活赛博大屏 React 模块核心...");
+            try {
+                // 使用绝对路径模式增强可靠性，移除可能导致部分旧版浏览器 fail to fetch 的查询参数
+                await import("/src/dashboard/DashboardApp.js");
+                console.log("✅ 赛博大屏核心组件加载成功！");
+                window.__DASHBOARD_READY__ = true;
+            } catch (err) {
+                console.error("❌ [严重错误] 赛博大屏模块载入崩溃:", err);
+                const dashboard = document.getElementById('dashboardApp');
+                if (dashboard) {
+                    dashboard.innerHTML = `
+                        <div style="color: #ff5555; text-align: center; padding: 50px; background: #080c15; height: 100%;">
+                            <h3 style="margin-top: 100px;">🚨 3D渲染引擎加载失败</h3>
+                            <p style="font-size: 14px; color: #94a3b8;">原因: ${err.message || '网络连接被重置或组件解析错误'}</p>
+                            <p style="font-size: 12px; color: #64748b;">请确保已连接互联网（需访问 esm.sh）后刷新。</p>
+                            <button onclick="window.location.reload()" style="background: #38bdf8; border:none; padding: 10px 20px; border-radius: 8px; color:#000; cursor:pointer; margin-top:20px; font-weight:bold;">刷新并重试</button>
+                        </div>
+                    `;
+                }
+            }
+        };
+
+        // 延迟加载以防主线程阻塞
+        if (document.readyState === 'complete') {
+            loadDashboard();
+        } else {
+            window.addEventListener('load', loadDashboard);
+        }
     </script>
   </body>
 </html>

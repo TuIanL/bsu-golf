@@ -9,12 +9,21 @@ ROOT="$(cd "$(dirname "$0")" && pwd)"
 FRONTEND_PORT="${FRONTEND_PORT:-8765}"
 API_PORT="${API_PORT:-8000}"
 
+echo "==> 正在清理旧进程以免发生端口占用错误..."
+# 强杀 8000 和 8765 端口的进程，防止 Address already in use
+lsof -i :${API_PORT} -t | xargs kill -9 2>/dev/null || true
+lsof -i :${FRONTEND_PORT} -t | xargs kill -9 2>/dev/null || true
+sleep 0.5
+
 BACKEND_PID=""
 HTTP_PID=""
 
 cleanup() {
+  echo ""
+  echo "==> 正在关闭所有服务..."
   [[ -n "${HTTP_PID}" ]] && kill "${HTTP_PID}" 2>/dev/null || true
   [[ -n "${BACKEND_PID}" ]] && kill "${BACKEND_PID}" 2>/dev/null || true
+  echo "==> 服务已退出。"
 }
 trap cleanup EXIT INT TERM
 

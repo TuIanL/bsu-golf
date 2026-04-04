@@ -3,4 +3,23 @@ __pycache__/
 *.pyc
 .conda/
 .vscode/
+.idea/
 node_modules/
+
+# Python Virtual Environments
+.venv/
+venv/
+env/
+
+# Logs and analysis data
+*.log
+backend/backend.log
+
+# Large MediaPipe model task file
+backend/pose_landmarker.task
+
+# User media files (Videos)
+*.mp4
+*.mov
+*.avi
+*.wmv

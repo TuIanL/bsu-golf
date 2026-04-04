@@ -332,6 +332,7 @@ video.noMirror {
 .legendItem .dot.blue { color: #38bdf8; background: #38bdf8; }
 .legendItem .dot.red { color: #ef4444; background: #ef4444; }
 .legendItem .dot.green { color: #34d399; background: #34d399; }
+.legendItem .dot.vslot { color: #2ecc71; background: rgba(46, 204, 113, 0.4); border-radius: 2px; height: 14px; width: 14px; }
 
 .legendText strong {
   display: block;

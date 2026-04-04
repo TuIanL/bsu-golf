@@ -308,5 +308,10 @@ function DashboardApp() {
 }
 
 console.log("Mounting Dashboard App to DOM...");
-const root = createRoot(document.getElementById('dashboardApp'));
-root.render(React.createElement(DashboardApp));
+const mountNode = document.getElementById('dashboardApp');
+if (mountNode) {
+    const root = createRoot(mountNode);
+    root.render(React.createElement(DashboardApp));
+} else {
+    console.warn("⚠️ [DashboardApp] Mount node #dashboardApp not found.");
+}
