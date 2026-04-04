@@ -27,6 +27,15 @@ def process_video(video_path: str) -> list:
     )
     detector = vision.PoseLandmarker.create_from_options(options)
 
+    # Unify frame size for more stable landmarks alignment across browsers.
+    # We intentionally resize (stretch) to a fixed resolution so that the normalized
+    # pose coordinates match the front-end "object-fit: fill" mapping.
+    # Unify frame size to a fixed 9:16 portrait ratio.
+    # Using a portrait target makes normalized pose landmarks map consistently
+    # when the front-end displays the video with `object-fit: fill`.
+    TARGET_W = 360
+    TARGET_H = 640
+
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
         print(f"Failed to open video: {video_path}")
@@ -44,8 +53,11 @@ def process_video(video_path: str) -> list:
         if not ret:
             break
 
+        # Resize frame to unified size (stretch) before running pose.
+        frame_resized = cv2.resize(frame, (TARGET_W, TARGET_H), interpolation=cv2.INTER_LINEAR)
+
         # Convert the BGR image to RGB
-        image_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        image_rgb = cv2.cvtColor(frame_resized, cv2.COLOR_BGR2RGB)
         
         # Wrap image in mp.Image
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=image_rgb)

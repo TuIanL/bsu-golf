@@ -1,12 +1,30 @@
-import { createUIBindings } from "./ui/uiBindings.js";
+/**
+ * main.js — 路由驱动的应用入口
+ *
+ * 按路由初始化各页面模块，替代旧的 tab 切换逻辑。
+ */
+
+import { initRouter, onRouteChange, navigate } from "./router.js";
+import { initTaskStore } from "./taskStore.js";
+import { initUploadPage } from "./pages/uploadPage.js";
+import { mountReport } from "./pages/reportPage.js";
 import { createCameraController } from "./pipeline/cameraController.js";
 import { createPosePipeline } from "./pipeline/posePipeline.js";
-import { createVideoUploadController } from "./pipeline/videoUploadController.js";
 import { createExplanationStore } from "./content/explanationStore.js";
 import { createVisualization } from "./visualization/visualization.js";
-import { uploadVideoToBackend } from "./apiClient.js";
 
 async function main() {
+  // ── 初始化全局状态 ──────────────────────────
+  initTaskStore();
+  initUploadPage();
+
+  // ── Landing 按钮绑定 ────────────────────────
+  document.getElementById("btnGoCamera")?.addEventListener("click", () => navigate("#/camera"));
+  document.getElementById("btnGoUpload")?.addEventListener("click", () => navigate("#/upload"));
+  document.getElementById("uploadBackBtn")?.addEventListener("click", () => navigate("#/"));
+  document.getElementById("cameraBackBtn")?.addEventListener("click", () => navigate("#/"));
+
+  // ── 摄像头模式相关 DOM ──────────────────────
   const els = {
     clubSelect: document.getElementById("clubSelect"),
     viewSelect: document.getElementById("viewSelect"),
@@ -26,15 +44,16 @@ async function main() {
     explanation: document.getElementById("explanation"),
   };
 
-  const ui = createUIBindings(els);
   const camera = createCameraController(els);
-  const videoUpload = createVideoUploadController(els);
   const explanationStore = createExplanationStore();
   const viz = createVisualization(els);
 
+  // Cache-bust uiBindings
+  const v = new URL(import.meta.url).searchParams.get("v") || "0";
+  const { createUIBindings } = await import(`./ui/uiBindings.js?v=${v}`);
+  const ui = createUIBindings(els);
+
   let latencySamples = [];
-  let currentMode = "camera"; // "camera" | "upload"
-  let analysisHistory = []; // Store frames for seeking: { t: ms, payload }
 
   function percentile(sorted, p) {
     if (sorted.length === 0) return null;
@@ -50,24 +69,14 @@ async function main() {
     overlayCanvas: els.overlay,
     videoEl: els.video,
     onFrame: (payload) => {
-      // 在上传分析期间记录历史
-      if (currentMode === "upload") {
-        analysisHistory.push({
-          t: els.video.currentTime,
-          payload: payload,
-        });
-      }
-      viz.renderAll(payload, explanationStore, currentMode === "upload");
+      viz.renderAll(payload, explanationStore, false);
       ui.renderResult(payload);
     },
     onLatency: (ms) => {
       if (ms == null || !Number.isFinite(ms) || ms <= 0) return;
       latencySamples.push(ms);
       if (latencySamples.length > 160) latencySamples.shift();
-      if (latencySamples.length < 20) {
-        ui.setLatency(ms);
-        return;
-      }
+      if (latencySamples.length < 20) { ui.setLatency(ms); return; }
       const sorted = [...latencySamples].sort((a, b) => a - b);
       const p50 = percentile(sorted, 0.5);
       const p95 = percentile(sorted, 0.95);
@@ -77,35 +86,9 @@ async function main() {
     onRecorderState: (state) => ui.setRecorderState(state),
   });
 
-  // ── 进度条 Seek 手动查看看回放 ─────────────────────────
-  ui.onSeek((pct) => {
-    if (currentMode !== "upload") return;
-    const duration = videoUpload.getDuration();
-    if (!duration) return;
-    const targetTime = pct * duration;
-    videoUpload.seek(targetTime);
+  // ── 摄像头启停 ──────────────────────────────
+  let cameraRunning = false;
 
-    // 找到 analysisHistory 中最接近 targetTime 的那一帧重绘
-    if (analysisHistory.length === 0) return;
-    
-    let closestFrame = analysisHistory[0];
-    let minDiff = Math.abs(closestFrame.t - targetTime);
-
-    for (let i = 1; i < analysisHistory.length; i++) {
-      const diff = Math.abs(analysisHistory[i].t - targetTime);
-      if (diff < minDiff) {
-        minDiff = diff;
-        closestFrame = analysisHistory[i];
-      }
-    }
-
-    if (closestFrame && closestFrame.payload) {
-      viz.renderAll(closestFrame.payload, explanationStore, true);
-      ui.renderResult(closestFrame.payload);
-    }
-  });
-
-  // ── 摄像头模式 ────────────────────────────────────────
   ui.onStart(async (config) => {
     latencySamples = [];
     ui.setCameraStatus("启动中...");
@@ -114,6 +97,7 @@ async function main() {
     ui.setCameraStatus("摄像头已启动");
     pipeline.setConfig(config);
     await pipeline.start(stream);
+    cameraRunning = true;
   });
 
   ui.onStop(async () => {
@@ -121,125 +105,28 @@ async function main() {
     await camera.stop();
     ui.setCameraStatus("摄像头已停止");
     latencySamples = [];
+    cameraRunning = false;
   });
 
-  // ── 模式切换 ──────────────────────────────────────────
-  ui.onModeSwitch(async (mode) => {
-    // 如果正在运行任一模式先停止
-    if (currentMode === "camera") {
+  // ── 路由变化处理 ──────────────────────────
+  onRouteChange(async (route) => {
+    // 离开摄像头页面时自动停止
+    if (route.page !== "pageCamera" && cameraRunning) {
       try {
         await pipeline.stop();
         await camera.stop();
-        ui.setCameraStatus("摄像头未启动");
-      } catch (_) { /* 未运行时忽略 */ }
-    } else if (currentMode === "upload") {
-      videoUpload.stop();
-      ui.hideProgress();
+        cameraRunning = false;
+      } catch {}
     }
 
-    currentMode = mode;
-    latencySamples = [];
-
-    if (mode === "upload") {
-      els.video.classList.add("noMirror");
-      ui.setCameraStatus("请上传视频文件");
-    } else if (mode === "dashboard") {
-      ui.setCameraStatus("大屏显示中");
-      // 可以在此处通知 React 开启
-      window.dispatchEvent(new CustomEvent("golf_dashboard_active"));
-    } else {
-      els.video.classList.remove("noMirror");
-      ui.setCameraStatus("摄像头未启动");
+    // 进入报告页时挂载数据
+    if (route.page === "pageReport" && route.params.id) {
+      mountReport(route.params.id);
     }
   });
 
-  // ── 视频上传与分析 ─────────────────────────────────────
-  ui.onFileSelect(async (file) => {
-    try {
-      // 停止上次分析（如有）
-      await pipeline.stop();
-      videoUpload.stop();
-      ui.hideProgress();
-      analysisHistory = []; // 清空历史
-
-      ui.setCameraStatus(`正在加载: ${file.name}`);
-      ui.setAnalysisStatus("加载中...");
-
-      await videoUpload.load(file);
-
-      const config = {
-        clubType: els.clubSelect.value,
-        view: els.viewSelect.value,
-        handedness: els.handednessSelect.value,
-      };
-
-      ui.setCameraStatus(`正在上传并分析: ${file.name}`);
-      ui.setAnalysisStatus("请求后端分析...");
-
-      // Request Python backend to perform the heavy lifting
-      let backendData = null;
-      try {
-        const result = await uploadVideoToBackend(file, config);
-        backendData = result.python_pipeline_results;
-        ui.setAnalysisStatus("后端分析完成，构建视图中...");
-
-        // 🌉 桥接：将数据派发给 React 赛博大屏
-        if (backendData) {
-          window.__DASHBOARD_DATA__ = backendData;
-          window.dispatchEvent(new CustomEvent("golf_dashboard_data", { detail: backendData }));
-        }
-      } catch (err) {
-        console.error("Backend Error:", err);
-        ui.setCameraStatus(`后端服务连接失败: ${err.message}`);
-        ui.setAnalysisStatus("错误");
-        return;
-      }
-
-      // Build analysis history array for seeking/scrubbing
-      if (backendData && backendData.fullHistory) {
-        analysisHistory = backendData.fullHistory.map((frame) => ({
-          t: frame.t / 1000, // backend t is in ms, video.currentTime is in seconds
-          payload: {
-            ...backendData,
-            rawLandmarks: frame.landmarks,
-            analysisLandmarks: frame.landmarks, // backend has already smoothed it
-          },
-        }));
-      }
-
-      // When the video plays or is scrubbed, update the UI and drawn overlays
-      videoUpload.onProgress((cur, dur) => {
-        ui.setProgress(cur, dur);
-
-        if (analysisHistory.length > 0) {
-          let closestFrame = analysisHistory[0];
-          let minDiff = Math.abs(closestFrame.t - cur);
-          for (let i = 1; i < analysisHistory.length; i++) {
-            const diff = Math.abs(analysisHistory[i].t - cur);
-            if (diff < minDiff) {
-              minDiff = diff;
-              closestFrame = analysisHistory[i];
-            }
-          }
-          if (closestFrame && closestFrame.payload) {
-            viz.renderAll(closestFrame.payload, explanationStore, true);
-            ui.renderResult(closestFrame.payload);
-          }
-        }
-      });
-
-      videoUpload.onEnded(async () => {
-        ui.setAnalysisStatus("分析完成 ✓");
-        ui.setCameraStatus("视频播放完成，可拖动进度条查看回放");
-      });
-
-      ui.setCameraStatus(`分析完成，正在回放: ${file.name}`);
-      await videoUpload.play();
-    } catch (err) {
-      console.error(err);
-      ui.setCameraStatus(`错误: ${err?.message || String(err)}`);
-    }
-  });
+  // ── 启动路由 ────────────────────────────────
+  initRouter();
 }
 
 main().catch((err) => {
@@ -247,4 +134,3 @@ main().catch((err) => {
   const el = document.getElementById("cameraStatus");
   if (el) el.textContent = `启动失败: ${err?.message || String(err)}`;
 });
-

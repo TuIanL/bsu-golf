@@ -3,7 +3,7 @@
  * 负责与后端的 Python FastAPI 算法服务器进行通讯
  */
 
-const API_BASE_URL = "http://localhost:8000/api";
+const API_BASE_URL = "http://127.0.0.1:8000/api";
 
 export async function uploadVideoToBackend(file, config = {}) {
   const formData = new FormData();

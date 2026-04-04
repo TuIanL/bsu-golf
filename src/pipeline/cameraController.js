@@ -32,7 +32,11 @@ export function createCameraController(els) {
     stream = await navigator.mediaDevices.getUserMedia(constraints);
     if (video) {
       video.srcObject = stream;
-      await video.play();
+      try {
+        await video.play();
+      } catch (err) {
+        if (err.name !== "AbortError") throw err;
+      }
     }
 
     // Auto-record for demo purposes (client-only).

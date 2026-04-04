@@ -34,7 +34,11 @@ export function createVideoUploadController(els) {
 
   /** 开始播放（同时启动进度轮询） */
   async function play() {
-    await video.play();
+    try {
+      await video.play();
+    } catch (err) {
+      if (err.name !== "AbortError") throw err;
+    }
     _startProgress();
   }
 

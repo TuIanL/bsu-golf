@@ -2,18 +2,175 @@
   box-sizing: border-box;
 }
 
-body {
-  margin: 0;
-  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
-  background: #0b0f14;
-  color: #e8eef6;
+:root {
+  --app-vh: 100vh;
+  --accent: #7eb8f7;
+  --accent-glow: rgba(126, 184, 247, 0.3);
+  --bg: #0b0f14;
+  --bg-card: #0f1622;
+  --bg-card-hover: #131d2d;
+  --border: #1d2b3f;
+  --text: #e8eef6;
+  --text-muted: #8ba4c0;
 }
 
+html,
+body {
+  margin: 0;
+  width: 100%;
+  height: var(--app-vh);
+  overflow: hidden !important;
+}
+
+body {
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  background: var(--bg);
+  color: var(--text);
+  position: fixed;
+  inset: 0;
+}
+
+/* ═══════════════════════════════════════
+   通用页面容器
+   ═══════════════════════════════════════ */
+.page {
+  width: 100%;
+  height: var(--app-vh);
+  overflow: auto;
+}
+
+/* ── 通用返回按钮 ── */
+.backBtn {
+  appearance: none;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-radius: 10px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+.backBtn:hover {
+  background: rgba(255,255,255,0.1);
+  color: var(--text);
+}
+
+/* ═══════════════════════════════════════
+   Page 1: Landing
+   ═══════════════════════════════════════ */
+.landingContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--app-vh);
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.landingLogo {
+  font-size: 80px;
+  margin-bottom: 10px;
+  filter: drop-shadow(0 0 30px rgba(126,184,247,0.3));
+  animation: float 3s ease-in-out infinite;
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-12px); }
+}
+
+.landingTitle {
+  font-size: 48px;
+  font-weight: 800;
+  margin: 0;
+  background: linear-gradient(135deg, #7eb8f7, #a78bfa, #22d3ee);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: 2px;
+}
+
+.landingSubtitle {
+  font-size: 16px;
+  color: var(--text-muted);
+  margin: 12px 0 40px;
+  letter-spacing: 1px;
+}
+
+.landingActions {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.landingBtn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 260px;
+  padding: 30px 24px;
+  border-radius: 20px;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  text-align: center;
+}
+
+.landingBtnIcon {
+  font-size: 36px;
+}
+
+.landingBtnLabel {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.landingBtnDesc {
+  font-size: 12px;
+  opacity: 0.6;
+  line-height: 1.4;
+}
+
+.landingBtnPrimary {
+  background: linear-gradient(135deg, rgba(126,184,247,0.15), rgba(167,139,250,0.1));
+  color: var(--text);
+}
+.landingBtnPrimary:hover {
+  background: linear-gradient(135deg, rgba(126,184,247,0.25), rgba(167,139,250,0.2));
+  border-color: var(--accent);
+  transform: translateY(-4px);
+  box-shadow: 0 8px 30px var(--accent-glow);
+}
+
+.landingBtnSecondary {
+  background: var(--bg-card);
+  color: var(--text);
+}
+.landingBtnSecondary:hover {
+  background: var(--bg-card-hover);
+  border-color: #a78bfa;
+  transform: translateY(-4px);
+  box-shadow: 0 8px 30px rgba(167,139,250,0.2);
+}
+
+/* ═══════════════════════════════════════
+   Page 2: Camera (existing styles)
+   ═══════════════════════════════════════ */
 .app {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 18px;
+  padding: 10px 14px;
+  height: var(--app-vh);
+  max-height: var(--app-vh);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: hidden;
 }
 
 .topbar {
@@ -21,14 +178,10 @@ body {
   justify-content: space-between;
   align-items: flex-start;
   gap: 16px;
-  padding-bottom: 12px;
+  padding-bottom: 0;
+  flex-shrink: 0;
 }
-
-.topbar h1 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 700;
-}
+.topbar h1 { margin: 0; font-size: 18px; font-weight: 700; }
 
 .controls {
   display: flex;
@@ -37,7 +190,6 @@ body {
   align-items: center;
   justify-content: flex-end;
 }
-
 .controls label {
   display: flex;
   flex-direction: column;
@@ -45,81 +197,59 @@ body {
   font-size: 12px;
   opacity: 0.95;
 }
-
 .controls select {
   background: #111821;
   border: 1px solid #243244;
-  color: #e8eef6;
+  color: var(--text);
   border-radius: 8px;
   padding: 8px 10px;
   outline: none;
 }
-
 .controls button {
   background: #1e2a3a;
   border: 1px solid #2a3a55;
-  color: #e8eef6;
+  color: var(--text);
   border-radius: 10px;
   padding: 10px 14px;
   cursor: pointer;
   font-weight: 600;
   transition: background 0.15s, border-color 0.15s;
 }
-
 .controls button:hover:not(:disabled) {
   background: #253344;
   border-color: #3a5080;
 }
-
 .controls button:disabled {
   opacity: 0.55;
   cursor: not-allowed;
-}
-
-/* ── 模式 Tab ── */
-.modeTabs {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 14px;
-}
-
-.modeTab {
-  background: #111821;
-  border: 1px solid #1d2b3f;
-  color: #8ba4c0;
-  border-radius: 10px;
-  padding: 9px 18px;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 600;
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
-}
-
-.modeTab:hover {
-  background: #1a2535;
-  color: #c8d8ee;
-}
-
-.modeTab.active {
-  background: #1a3056;
-  border-color: #2f5a9e;
-  color: #7eb8f7;
 }
 
 .layout {
   display: grid;
   grid-template-columns: 1.35fr 1fr;
   gap: 16px;
-  align-items: start;
+  align-items: stretch;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .cameraPanel,
 .resultPanel,
 .bottom {
-  background: #0f1622;
-  border: 1px solid #1d2b3f;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
   border-radius: 14px;
   padding: 14px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.cameraPanel {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 10px;
+  min-height: 0;
 }
 
 .videoWrap {
@@ -127,26 +257,34 @@ body {
   border-radius: 12px;
   overflow: hidden;
   background: #0a0f16;
+  height: 100%;
+  min-height: 0;
+  contain: layout paint size;
+  aspect-ratio: 9 / 16;
+  width: auto;
+  max-width: 100%;
+  margin: 0 auto;
 }
 
 video {
-  display: block;
+  position: absolute;
+  inset: 0;
   width: 100%;
-  height: auto;
+  height: 100%;
+  object-fit: cover;
   transform: scaleX(-1);
 }
-
-/* 上传模式下取消镜像 */
 video.noMirror {
   transform: none;
+  object-fit: fill;
 }
 
 #overlay {
   position: absolute;
-  top: 0;
-  left: 0;
+  inset: 0;
   width: 100%;
   height: 100%;
+  pointer-events: none;
 }
 
 .status {
@@ -154,99 +292,75 @@ video.noMirror {
   gap: 14px;
   flex-wrap: wrap;
   font-size: 12px;
-  margin-top: 10px;
+  margin-top: 0;
   opacity: 0.95;
+  flex-shrink: 0;
 }
 
-/* ── 上传面板 ── */
-.uploadPanel {
-  margin-top: 14px;
+.scoreCard, .traceLegendCard {
+  background: rgba(30, 41, 59, 0.5);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 20px;
 }
 
-.dropZone {
+.traceLegendCard h3 {
+  margin: 0 0 16px 0;
+  font-size: 16px;
+  color: #fff;
+  border-left: 3px solid var(--accent);
+  padding-left: 10px;
+}
+
+.legendItem {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  border: 2px dashed #2a3f5f;
-  border-radius: 14px;
-  padding: 28px 20px;
-  cursor: pointer;
-  text-align: center;
-  transition: border-color 0.2s, background 0.2s;
-  background: #0c1421;
+  gap: 12px;
+  margin-bottom: 16px;
+  align-items: flex-start;
 }
 
-.dropZone:hover,
-.dropZone.dragover {
-  border-color: #4a82c8;
-  background: #0f1e34;
+.legendItem .dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  margin-top: 4px;
+  flex-shrink: 0;
+  box-shadow: 0 0 8px currentColor;
 }
 
-.dropIcon {
-  font-size: 32px;
+.legendItem .dot.blue { color: #38bdf8; background: #38bdf8; }
+.legendItem .dot.red { color: #ef4444; background: #ef4444; }
+.legendItem .dot.green { color: #34d399; background: #34d399; }
+
+.legendText strong {
+  display: block;
+  font-size: 13px;
+  color: #f1f5f9;
+  margin-bottom: 2px;
 }
 
-.dropText {
-  font-size: 14px;
-  font-weight: 600;
-  color: #9ab4d4;
-}
-
-.dropSub {
+.legendText p {
+  margin: 0;
   font-size: 12px;
-  opacity: 0.6;
+  color: #94a3b8;
+  line-height: 1.4;
 }
 
-/* ── 进度条 ── */
-.progressRow {
+.traceTip {
   margin-top: 12px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255,255,255,0.05);
 }
 
-#analysisStatusText {
-  white-space: nowrap;
-  font-weight: 600;
-  color: #7eb8f7;
-  min-width: 60px;
+.traceTip p {
+  margin: 0;
+  font-size: 11px;
+  color: var(--accent);
+  font-style: italic;
+  opacity: 0.8;
 }
 
-.progressBarWrap {
-  flex: 1;
-  height: 8px; /* Slightly thicker for easier clicking */
-  background: #1a2738;
-  border-radius: 4px;
-  overflow: hidden;
-  cursor: pointer;
-  position: relative;
-  transition: height 0.1s, background 0.2s;
-}
-
-.progressBarWrap:hover {
-  height: 10px;
-  background: #223246;
-}
-
-.progressBarFill {
-  height: 100%;
-  width: 0%;
-  background: linear-gradient(90deg, #3a7de8, #63b3ff);
-  border-radius: 4px;
-  pointer-events: none; /* Let events bubble to wrap */
-}
-
-#progressTimeText {
-  white-space: nowrap;
-  opacity: 0.75;
-  min-width: 80px;
-  text-align: right;
-}
-
-/* ── 结果面板 ── */
 .scoreCard h2,
 .issuesCard h3,
 .chartCard h3,
@@ -260,7 +374,7 @@ video.noMirror {
   margin: 0;
 }
 
-#deductionList {
+#deductionList, #reportDeductionList {
   list-style: none;
   padding: 0;
   margin: 10px 0 0 0;
@@ -268,40 +382,39 @@ video.noMirror {
   gap: 8px;
 }
 
-#deductionList li {
+#deductionList li, #reportDeductionList li {
   background: #101a28;
   border: 1px solid #22324a;
+  border-left: 4px solid #334155; /* Default left border */
   border-radius: 10px;
-  padding: 10px;
+  padding: 10px 14px;
   font-size: 13px;
   display: flex;
   justify-content: space-between;
   gap: 12px;
+  transition: all 0.2s ease;
+}
+
+#deductionList li.severity-high, #reportDeductionList li.severity-high {
+  border-left-color: #ef4444; /* red-500 */
+  background: rgba(239, 68, 68, 0.08);
+}
+
+#deductionList li.severity-mid, #reportDeductionList li.severity-mid {
+  border-left-color: #f59e0b; /* amber-500 */
+  background: rgba(245, 158, 11, 0.08);
+}
+
+#deductionList li.severity-low, #reportDeductionList li.severity-low {
+  border-left-color: #10b981; /* emerald-500 */
+  background: rgba(16, 185, 129, 0.05);
 }
 
 .metricsGrid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
   margin-top: 12px;
-}
-
-.metricCard {
-  background: #101a28;
-  border: 1px solid #22324a;
-  border-radius: 12px;
-  padding: 10px;
-}
-
-.metricLabel {
-  font-size: 12px;
-  opacity: 0.9;
-}
-
-.metricValue {
-  margin-top: 6px;
-  font-size: 16px;
-  font-weight: 800;
+  width: 100%;
+  height: 240px;
+  display: block;
 }
 
 .issuesCard ul {
@@ -311,19 +424,16 @@ video.noMirror {
   display: grid;
   gap: 10px;
 }
-
 .issuesCard li {
   background: #101a28;
   border: 1px solid #22324a;
   border-radius: 12px;
   padding: 10px;
 }
-
 .issuesTitle {
   font-weight: 800;
   font-size: 13px;
 }
-
 .issuesDesc {
   margin-top: 6px;
   font-size: 12px;
@@ -331,52 +441,388 @@ video.noMirror {
 }
 
 .bottom {
-  margin-top: 16px;
-  display: grid;
-  grid-template-columns: 1.2fr 0.8fr;
-  gap: 16px;
+  display: none;
 }
 
-.chartCard,
-.explainCard {
-  background: transparent;
-  border: none;
-  padding: 0;
-}
-
-#trajectoryCanvas {
-  width: 100%;
-  height: 220px;
-  border-radius: 12px;
-  background: #0a0f16;
-}
-
-#explanation {
-  background: #101a28;
-  border: 1px solid #22324a;
-  border-radius: 12px;
-  padding: 12px;
-  min-height: 220px;
+.resultPanel {
   overflow: auto;
 }
 
+/* ═══════════════════════════════════════
+   Page 3: Upload & Task Queue
+   ═══════════════════════════════════════ */
+.uploadPageContainer {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 30px 20px;
+}
+
+.uploadHeader {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 30px;
+}
+.uploadHeader h1 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.uploadDropZone {
+  border: 2px dashed rgba(126,184,247,0.3);
+  border-radius: 20px;
+  padding: 60px 30px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s;
+  background: rgba(126,184,247,0.03);
+}
+.uploadDropZone:hover,
+.uploadDropZone.dragover {
+  border-color: var(--accent);
+  background: rgba(126,184,247,0.08);
+  box-shadow: 0 0 40px var(--accent-glow);
+}
+
+.uploadDropIcon {
+  font-size: 52px;
+  margin-bottom: 16px;
+}
+.uploadDropTitle {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+.uploadDropSub {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.taskListSection {
+  margin-top: 36px;
+}
+.taskListTitle {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0 0 16px 0;
+  color: var(--text-muted);
+}
+
+.taskList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.taskEmpty {
+  text-align: center;
+  padding: 40px;
+  color: var(--text-muted);
+  font-size: 14px;
+  border: 1px dashed var(--border);
+  border-radius: 14px;
+}
+
+.taskItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px 20px;
+  transition: border-color 0.2s;
+}
+.taskItem:hover {
+  border-color: rgba(126,184,247,0.3);
+}
+
+.taskInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.taskName {
+  font-size: 14px;
+  font-weight: 600;
+}
+.taskSize {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.taskAction {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 260px;
+  justify-content: flex-end;
+}
+
+.taskProgressWrap {
+  width: 140px;
+  height: 8px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.taskProgressFill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), #a78bfa);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+.taskProgressLabel {
+  font-size: 12px;
+  color: var(--accent);
+  white-space: nowrap;
+  width: 72px;
+  text-align: right;
+}
+
+.taskScore {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.taskReportBtn {
+  appearance: none;
+  background: linear-gradient(135deg, rgba(126,184,247,0.15), rgba(167,139,250,0.1));
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  border-radius: 10px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.taskReportBtn:hover {
+  background: rgba(126,184,247,0.25);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px var(--accent-glow);
+}
+
+.taskError {
+  font-size: 12px;
+  color: #ff5555;
+}
+
+/* ═══════════════════════════════════════
+   Page 4: Report
+   ═══════════════════════════════════════ */
+.reportPageContainer {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 30px 20px;
+}
+
+.reportHeader {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 30px;
+}
+.reportHeader h1 {
+  margin: 0;
+  flex: 1;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.dashboardBtn {
+  appearance: none;
+  background: linear-gradient(135deg, #00f3ff22, #00f3ff11);
+  border: 1px solid #00f3ff;
+  color: #00f3ff;
+  border-radius: 10px;
+  padding: 8px 20px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  transition: all 0.25s;
+  white-space: nowrap;
+}
+.dashboardBtn:hover {
+  background: rgba(0,243,255,0.15);
+  box-shadow: 0 0 20px rgba(0,243,255,0.3);
+  transform: translateY(-1px);
+}
+
+.reportGrid3Cols {
+  display: grid;
+  grid-template-columns: 1fr 420px 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+.reportColLeft, .reportColRight {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+@media (max-width: 1100px) {
+  .reportGrid3Cols {
+    grid-template-columns: 1fr;
+    max-width: 600px;
+    margin: 0 auto;
+  }
+  .reportColCenter {
+    order: -1;
+  }
+}
+
+.reportVideoWrapper {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  aspect-ratio: 9 / 16;
+  background: #000;
+  margin: 0 auto;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  overflow: hidden;
+}
+
+#reportVideo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+#reportOverlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 5;
+  border-radius: 16px;
+}
+
+.videoControlsOverlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(transparent, rgba(0,0,0,0.7));
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.reportVideoWrapper:hover .videoControlsOverlay {
+  opacity: 1;
+}
+
+.playBtn {
+  background: var(--accent);
+  border: none;
+  color: #000;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s;
+}
+.playBtn:hover {
+  transform: scale(1.1);
+}
+
+.traceToggleBtn {
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.25);
+  color: rgba(255,255,255,0.7);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+.traceToggleBtn:hover {
+  background: rgba(255,255,255,0.2);
+  color: #fff;
+}
+.traceToggleBtn.active {
+  background: rgba(56,189,248,0.25);
+  border-color: rgba(56,189,248,0.6);
+  color: rgb(56,189,248);
+}
+
+.videoProgressContainer {
+  flex: 1;
+}
+
+#reportSeekBar {
+  width: 100%;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.timeDisplay {
+  font-size: 12px;
+  font-family: monospace;
+  color: var(--text-muted);
+  min-width: 100px;
+}
+
+.reportGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+.reportLeft, .reportRight {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.reportLeft .scoreCard,
+.reportRadarCard,
+.reportRight .issuesCard {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 20px;
+}
+
+.reportRadarCard h3 {
+  margin: 0 0 10px 0;
+}
+
+/* ═══════════════════════════════════════
+   Legacy / Shared
+   ═══════════════════════════════════════ */
 .explainBlock {
   margin-bottom: 14px;
   padding-bottom: 14px;
   border-bottom: 1px dashed #2b3f5a;
 }
-
 .explainBlock:last-child {
   border-bottom: none;
   margin-bottom: 0;
   padding-bottom: 0;
 }
-
 .explainTitle {
   font-weight: 900;
   margin-bottom: 8px;
 }
-
 .explainText {
   font-size: 13px;
   opacity: 0.96;

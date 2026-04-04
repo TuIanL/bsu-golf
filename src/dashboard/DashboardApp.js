@@ -9,12 +9,14 @@ const html = htm.bind(React.createElement);
 function useDashboardData() {
     const [data, setData] = React.useState(window.__DASHBOARD_DATA__ || null);
     const [frameIdx, setFrameIdx] = React.useState(0);
+    const [isPlaying, setIsPlaying] = React.useState(false);
 
     React.useEffect(() => {
         const handleData = (e) => {
             console.log("Dashboard received backend data:", e.detail);
             setData(e.detail);
-            setFrameIdx(0); // 重置到第一帧
+            setFrameIdx(0); 
+            setIsPlaying(true); 
         };
         window.addEventListener("golf_dashboard_data", handleData);
         
@@ -31,7 +33,23 @@ function useDashboardData() {
         };
     }, []);
 
-    return { data, frameIdx, setFrameIdx };
+    React.useEffect(() => {
+        let timer;
+        if (isPlaying && data?.fullHistory?.length > 0) {
+            timer = setInterval(() => {
+                setFrameIdx(prev => {
+                    if (prev >= data.fullHistory.length - 1) {
+                        setIsPlaying(false);
+                        return prev;
+                    }
+                    return prev + 1;
+                });
+            }, 60); 
+        }
+        return () => clearInterval(timer);
+    }, [isPlaying, data]);
+
+    return { data, frameIdx, setFrameIdx, isPlaying, setIsPlaying };
 }
 
 // ── 2. ECharts 通用 React 包装组件 ─────────────────
@@ -110,7 +128,7 @@ function Dashboard3D({ history, currentFrame }) {
 
 // ── 4. 主大屏面板 ─────────────────────────────────
 function DashboardApp() {
-    const { data, frameIdx, setFrameIdx } = useDashboardData();
+    const { data, frameIdx, setFrameIdx, isPlaying, setIsPlaying } = useDashboardData();
     const mockScore = data?.score || 85;
 
     const gaugeOption = {
@@ -210,11 +228,57 @@ function DashboardApp() {
                     <div style=${{ flex: 1, position: 'relative' }}>
                         <${Dashboard3D} history=${data?.fullHistory} currentFrame=${frameIdx} />
                         
-                        <!-- 动态进度条 -->
                         ${data?.fullHistory?.length > 0 && html`
-                            <div style=${{ position: 'absolute', bottom: '20px', left: '10%', width: '80%', background: 'rgba(0,0,0,0.6)', padding: '10px', borderRadius: '8px', display: 'flex', gap: '10px', alignItems: 'center', backdropFilter: 'blur(4px)' }}>
-                                <div style=${{ color: '#00f3ff', fontSize: '12px' }}>帧: ${frameIdx + 1}/${data.fullHistory.length}</div>
-                                <input type="range" min="0" max=${data.fullHistory.length - 1} value=${frameIdx} onChange=${(e) => setFrameIdx(parseInt(e.target.value))} style=${{ flex: 1, cursor: 'pointer', accentColor: '#00f3ff' }} />
+                            <div style=${{ position: 'absolute', bottom: '20px', left: '10%', width: '80%', background: 'rgba(0,0,0,0.7)', padding: '12px 20px', borderRadius: '14px', display: 'flex', gap: '20px', alignItems: 'center', backdropFilter: 'blur(10px)', border: '1px solid rgba(0,243,255,0.2)', boxShadow: '0 8px 32px rgba(0,0,0,0.5)', zIndex: 100 }}>
+                                <button 
+                                    onClick=${() => {
+                                        if (frameIdx >= data.fullHistory.length - 1) {
+                                            setFrameIdx(0);
+                                            setIsPlaying(true);
+                                        } else {
+                                            setIsPlaying(!isPlaying);
+                                        }
+                                    }}
+                                    style=${{ 
+                                        width: '40px', 
+                                        height: '40px', 
+                                        borderRadius: '50%', 
+                                        border: 'none',
+                                        cursor: 'pointer', 
+                                        display: 'flex', 
+                                        alignItems: 'center', 
+                                        justifyContent: 'center',
+                                        background: isPlaying ? 'rgba(0,243,255,0.1)' : '#00f3ff',
+                                        color: isPlaying ? '#00f3ff' : '#080c14',
+                                        boxShadow: isPlaying ? 'none' : '0 0 15px rgba(0,243,255,0.5)',
+                                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                        fontSize: '18px'
+                                    }}
+                                >
+                                    ${frameIdx >= data.fullHistory.length - 1 ? '🔄' : (isPlaying ? '▍▍' : '▶')}
+                                </button>
+
+                                <div style=${{ color: '#00f3ff', fontSize: '13px', minWidth: '80px', fontFamily: '"JetBrains Mono", monospace' }}>
+                                    帧: ${frameIdx + 1}/${data.fullHistory.length}
+                                </div>
+                                
+                                <input 
+                                    type="range" 
+                                    min="0" 
+                                    max=${data.fullHistory.length - 1} 
+                                    value=${frameIdx} 
+                                    onInput=${(e) => {
+                                        setFrameIdx(parseInt(e.target.value));
+                                        setIsPlaying(false);
+                                    }} 
+                                    style=${{ 
+                                        flex: 2, 
+                                        cursor: 'pointer', 
+                                        accentColor: '#00f3ff',
+                                        height: '4px',
+                                        opacity: 0.8
+                                    }} 
+                                />
                             </div>
                         `}
                     </div>

@@ -1,0 +1,6 @@
+#!/Users/tuian/Documents/大学/竞赛/小挑战杯/2026春高尔夫/Code/高尔夫姿态/web-app/backend/.venv/bin/python3
+import sys
+from fontTools.merge import main
+if __name__ == '__main__':
+    sys.argv[0] = sys.argv[0].removesuffix('.exe')
+    sys.exit(main())

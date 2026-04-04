@@ -4,13 +4,39 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>高尔夫挥杆实时识别 MVP</title>
-    <link rel="stylesheet" href="./src/styles.css" />
+    <link rel="stylesheet" href="./src/styles.css?v=20260329a" />
+    <script>
+      (function () {
+        // [Cleanup] 一次性清理旧的 sessionStorage 任务记录，确保向“刷新即重置”过渡
+        if (sessionStorage.getItem("golf_task_queue")) {
+          sessionStorage.removeItem("golf_task_queue");
+        }
+
+        const setAppVh = () => {
+          const vh = window.innerHeight;
+          document.documentElement.style.setProperty("--app-vh", `${vh}px`);
+        };
+        setAppVh();
+        window.addEventListener("resize", setAppVh, { passive: true });
+        window.addEventListener("orientationchange", setAppVh, { passive: true });
+        if (window.visualViewport) {
+          window.visualViewport.addEventListener("resize", setAppVh, { passive: true });
+        }
+      })();
+    </script>
     <script>
     window.onerror = function(msg, url, line, col, error) {
         alert("🚨 前端JS运行报错!\n\n错误信息: " + msg + "\n文件位置: " + url + " (第 " + line + " 行)");
     };
     window.addEventListener('unhandledrejection', function(event) {
-        alert("🚨 异步Promise报错!\n\n原因: " + (event.reason?.message || event.reason));
+        const reason = event.reason?.message || String(event.reason);
+        // 静默处理由于切换页面或快速连点导致的视频播放中断报错 (Harmless race conditions)
+        if (reason.includes("interrupted by a call to pause") || reason.includes("AbortError")) {
+            console.warn("[Global] Ignored unhandled rejection (Video Playback):", reason);
+            event.preventDefault(); // 防止报错进一步传播
+            return;
+        }
+        alert("🚨 异步Promise报错!\n\n原因: " + reason);
     });
 
     // 🔬 控制台报错捕获并投射到屏幕上
@@ -60,120 +86,220 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.5.0/echarts.min.js"></script>
   </head>
   <body>
-    <div class="app">
-      <header class="topbar">
-        <h1>高尔夫挥杆实时识别 MVP</h1>
-        <div class="controls">
-          <label>
-            球杆
-            <select id="clubSelect">
-              <option value="wood">木杆</option>
-              <option value="iron">铁杆</option>
-              <option value="wedge">挖起杆</option>
-            </select>
-          </label>
-          <label>
-            视角
-            <select id="viewSelect">
-              <option value="front">正面</option>
-              <option value="side">侧面</option>
-            </select>
-          </label>
-          <label>
-            持杆手
-            <select id="handednessSelect">
-              <option value="right">右手</option>
-              <option value="left">左手</option>
-            </select>
-          </label>
-          <button id="startBtn">开始检测</button>
-          <button id="stopBtn" disabled>停止</button>
+
+    <!-- ═══════════════════════════════════════════════
+         Page 1: 引导页 (Landing)
+         ═══════════════════════════════════════════════ -->
+    <section id="pageLanding" class="page">
+      <div class="landingContainer">
+        <div class="landingLogo">🏌️</div>
+        <h1 class="landingTitle">Golf Swing AI</h1>
+        <p class="landingSubtitle">高尔夫挥杆姿态智能诊断系统</p>
+        <div class="landingActions">
+          <button class="landingBtn landingBtnPrimary" id="btnGoCamera">
+            <span class="landingBtnIcon">📷</span>
+            <span class="landingBtnLabel">实时摄像头模式</span>
+            <span class="landingBtnDesc">使用摄像头实时识别挥杆姿态</span>
+          </button>
+          <button class="landingBtn landingBtnSecondary" id="btnGoUpload">
+            <span class="landingBtnIcon">📁</span>
+            <span class="landingBtnLabel">上传视频模式</span>
+            <span class="landingBtnDesc">批量上传视频进行 AI 深度分析</span>
+          </button>
         </div>
-      </header>
-
-      <!-- 模式切换 Tab -->
-      <div class="modeTabs">
-        <button class="modeTab active" id="tabCamera">📷 实时摄像头</button>
-        <button class="modeTab" id="tabUpload">📁 上传视频</button>
-        <button class="modeTab" id="tabDashboard">📊 赛博全景大屏</button>
       </div>
+    </section>
 
-      <main class="layout">
-        <section class="cameraPanel">
-          <div class="videoWrap">
-            <video id="video" playsinline muted></video>
-            <canvas id="overlay"></canvas>
+    <!-- ═══════════════════════════════════════════════
+         Page 2: 实时摄像头 (Camera)
+         ═══════════════════════════════════════════════ -->
+    <section id="pageCamera" class="page" style="display:none">
+      <div class="app">
+        <header class="topbar">
+          <div style="display:flex;align-items:center;gap:12px">
+            <button class="backBtn" id="cameraBackBtn">← 返回</button>
+            <h1>实时摄像头识别</h1>
           </div>
-          <div class="status">
-            <span id="cameraStatus">摄像头未启动</span>
-            <span id="latencyStatus">延迟: -</span>
-            <span id="recordStatus" class="cameraOnly">自动录制: 待机</span>
-          </div>
-
-          <!-- 上传视频专属控件（默认隐藏） -->
-          <div class="uploadPanel" id="uploadPanel">
-            <label class="dropZone" id="dropZone">
-              <input type="file" id="videoFileInput" accept="video/*" hidden />
-              <span class="dropIcon">🎬</span>
-              <span class="dropText">点击或拖拽视频文件到此处</span>
-              <span class="dropSub">支持 MP4 / WebM / MOV 格式</span>
+          <div class="controls">
+            <label>球杆
+              <select id="clubSelect">
+                <option value="wood">木杆</option><option value="iron">铁杆</option><option value="wedge">挖起杆</option>
+              </select>
             </label>
-            <div class="progressRow" id="progressRow" style="display:none">
-              <span id="analysisStatusText">分析中...</span>
-              <div class="progressBarWrap">
-                <div class="progressBarFill" id="progressBarFill"></div>
+            <label>视角
+              <select id="viewSelect">
+                <option value="front">正面</option><option value="side">侧面</option>
+              </select>
+            </label>
+            <label>持杆手
+              <select id="handednessSelect">
+                <option value="right">右手</option><option value="left">左手</option>
+              </select>
+            </label>
+            <button id="startBtn">开始检测</button>
+            <button id="stopBtn" disabled>停止</button>
+          </div>
+        </header>
+
+        <main class="layout">
+          <section class="cameraPanel">
+            <div class="videoWrap">
+              <video id="video" playsinline muted></video>
+              <canvas id="overlay"></canvas>
+            </div>
+            <div class="status">
+              <span id="cameraStatus">摄像头未启动</span>
+              <span id="latencyStatus">延迟: -</span>
+              <span id="recordStatus">自动录制: 待机</span>
+            </div>
+          </section>
+
+          <section class="resultPanel">
+            <div class="scoreCard">
+              <h2>实时评分</h2>
+              <p class="score"><span id="scoreValue">--</span>/100</p>
+              <ul id="deductionList"></ul>
+            </div>
+            <div class="metricsGrid" id="metricsGrid"></div>
+            <div class="issuesCard">
+              <h3>问题识别</h3>
+              <ul id="issueList"></ul>
+            </div>
+          </section>
+        </main>
+
+        <section class="bottom">
+          <div class="chartCard"><h3>轨迹与重心可视化</h3><canvas id="trajectoryCanvas" width="720" height="220"></canvas></div>
+          <div class="explainCard"><h3>图文 + 视频解释</h3><div id="explanation"></div></div>
+        </section>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════
+         Page 3: 上传与任务列表 (Upload)
+         ═══════════════════════════════════════════════ -->
+    <section id="pageUpload" class="page" style="display:none">
+      <div class="uploadPageContainer">
+        <header class="uploadHeader">
+          <button class="backBtn" id="uploadBackBtn">← 返回首页</button>
+          <h1>视频上传与分析</h1>
+        </header>
+
+        <div class="uploadDropZone" id="uploadDropZone">
+          <input type="file" id="batchFileInput" accept="video/*" multiple hidden />
+          <div class="uploadDropIcon">📂</div>
+          <div class="uploadDropTitle">拖拽视频文件到此处上传</div>
+          <div class="uploadDropSub">或点击选择文件 · 支持批量上传 · MP4 / MOV / WebM</div>
+        </div>
+
+        <div class="taskListSection">
+          <h2 class="taskListTitle">分析任务队列</h2>
+          <div id="taskList" class="taskList"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════
+         Page 4: 分析报告 (Report)
+         ═══════════════════════════════════════════════ -->
+    <section id="pageReport" class="page" style="display:none">
+      <div class="reportPageContainer">
+        <header class="reportHeader">
+          <button class="backBtn" id="reportBackBtn">← 返回任务列表</button>
+          <h1 id="reportTitle">分析报告</h1>
+          <button class="dashboardBtn" id="reportDashboardBtn">📊 进入赛博大屏</button>
+        </header>
+
+        <div id="reportContent" class="reportContent">
+          <div class="reportGrid3Cols">
+            <!-- 左列: 评分汇总 -->
+            <div class="reportColLeft">
+              <div class="scoreCard">
+                <h2>综合评分</h2>
+                <p class="score"><span id="reportScore">--</span>/100</p>
+                <ul id="reportDeductionList"></ul>
               </div>
-              <span id="progressTimeText">0:00 / 0:00</span>
+
+              <!-- 新增：轨迹说明卡片 -->
+              <div class="traceLegendCard">
+                <h3>挥杆轨迹说明</h3>
+                <div class="legendItem">
+                  <span class="dot blue"></span>
+                  <div class="legendText">
+                    <strong>上杆阶段 (Backswing)</strong>
+                    <p>蓝色表示球员将球杆举起的过程。</p>
+                  </div>
+                </div>
+                <div class="legendItem">
+                  <span class="dot red"></span>
+                  <div class="legendText">
+                    <strong>下杆阶段 (Downswing)</strong>
+                    <p>红色表示下压击球过程。理想情况下，下杆轨迹应贴合或稍低于上杆轨迹。</p>
+                  </div>
+                </div>
+                <div class="legendItem">
+                  <span class="dot green"></span>
+                  <div class="legendText">
+                    <strong>送杆阶段 (Follow-through)</strong>
+                    <p>绿色表示击球后的惯性收杆过程。</p>
+                  </div>
+                </div>
+                <div class="traceTip">
+                  <p>💡 提示：观察红蓝线的间距可判断挥杆平面是否稳定，“由外向内”通常表现为红线跨过蓝线。</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- 中列: 核心视频展示区 -->
+            <div class="reportColCenter">
+              <div class="reportVideoWrapper">
+                <video id="reportVideo" class="noMirror" playsinline muted></video>
+                <canvas id="reportOverlay"></canvas>
+                
+                <!-- 视频控制浮层 -->
+                <div class="videoControlsOverlay">
+                  <button id="reportPlayBtn" class="playBtn">▶</button>
+                  <div class="videoProgressContainer">
+                    <input type="range" id="reportSeekBar" min="0" max="100" value="0" step="0.1" />
+                  </div>
+                  <span id="reportTimeDisplay" class="timeDisplay">0:00 / 0:00</span>
+                  <button id="traceToggleBtn" class="traceToggleBtn active" title="显示/隐藏挥杆轨迹">轨迹</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 右列: 雷达图与问题诊断 -->
+            <div class="reportColRight">
+              <div class="reportRadarCard">
+                <h3>生物力学雷达</h3>
+                <div id="reportRadar" style="width:100%;height:320px;"></div>
+              </div>
+              <div class="issuesCard">
+                <h3>问题识别</h3>
+                <ul id="reportIssueList"></ul>
+              </div>
             </div>
           </div>
-        </section>
-
-        <section class="resultPanel">
-          <div class="scoreCard">
-            <h2>实时评分</h2>
-            <p class="score"><span id="scoreValue">--</span>/100</p>
-            <ul id="deductionList"></ul>
-          </div>
-
-          <div class="metricsGrid" id="metricsGrid"></div>
-
-          <div class="issuesCard">
-            <h3>问题识别（Top10）</h3>
-            <ul id="issueList"></ul>
-          </div>
-        </section>
-      </main>
-
-      <section class="bottom">
-        <div class="chartCard">
-          <h3>轨迹与重心可视化</h3>
-          <canvas id="trajectoryCanvas" width="720" height="220"></canvas>
         </div>
-        <div class="explainCard">
-          <h3>图文 + 视频解释</h3>
-          <div id="explanation"></div>
-        </div>
-      </section>
-    </div>
+      </div>
+    </section>
 
-    <!-- 赛博大屏挂载点 (React) -->
+    <!-- 赛博大屏挂载点 (React) — 所有页面共享 -->
     <div id="dashboardApp" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; z-index:9999; background:#080c15; overflow:hidden;">
         <div style="color: #ff0000; font-size: 24px; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-weight: bold; text-shadow: 0 0 10px #ff0000;">
             ⚠️ 正在加载 React 核心组件... (原生 DOM 节点已激活)
         </div>
     </div>
 
-    <script type="module" src="./src/main.js"></script>
+    <script type="module" src="./src/main.js?v=20260329b"></script>
     <script type="module">
         (async () => {
              console.log("尝试动态加载赛博大屏模块...");
              try {
-                 // 🌟 强行追加入随机参数，绕过浏览器本地 `.js` 文件的顽固缓存
                  await import("./src/dashboard/DashboardApp.js?v=" + Date.now());
                  console.log("赛博大屏模块加载成功!");
              } catch (err) {
                  console.error("模块载入崩溃:", err);
-                 alert("🚨 赛博大屏模组载入崩溃!\n\n可能原因: " + err.message);
              }
         })();
     </script>

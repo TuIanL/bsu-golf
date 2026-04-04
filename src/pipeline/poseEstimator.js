@@ -17,14 +17,15 @@ async function loadScript(src) {
 
 export async function createPoseEstimator({ videoEl, onResults, onLatency }) {
   // MediaPipe legacy Pose solution (browser friendly).
-  const POSE_JS = "https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js";
+  const MP_POSE_VERSION = "0.5.1675469404";
+  const POSE_JS = `https://cdn.jsdelivr.net/npm/@mediapipe/pose@${MP_POSE_VERSION}/pose.js`;
 
   await loadScript(POSE_JS);
   const PoseCtor = window.Pose;
   if (!PoseCtor) throw new Error("Pose ctor not found on window");
 
   let pose = new PoseCtor({
-    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`,
+    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose@${MP_POSE_VERSION}/${file}`,
   });
 
   pose.setOptions({
@@ -134,7 +135,9 @@ export async function createPoseEstimator({ videoEl, onResults, onLatency }) {
         lastSendAt = now;
         sendToken += 1;
         lastSendAtToken.set(sendToken, now);
-        pose.send({ image: videoEl });
+        Promise.resolve(pose.send({ image: videoEl })).catch((err) => {
+          console.error("Pose send failed:", err);
+        });
       }
       rafId = requestAnimationFrame(loop);
     };

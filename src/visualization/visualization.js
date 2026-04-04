@@ -11,11 +11,10 @@ const CONNECTIONS = [
   [25, 27],
   [24, 26],
   [26, 28],
-  [15, 17],
-  [16, 18],
-  [15, 19],
-  [16, 20],
 ];
+const DRAW_POINT_INDEX_SET = new Set([
+  11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28,
+]);
 
 function clamp(x, a, b) {
   return Math.max(a, Math.min(b, x));
@@ -32,30 +31,91 @@ function setCanvasSizeToVideo(canvas, video) {
   }
 }
 
-function drawOverlay({ canvas, landmarks, mirrored = true }) {
+function getContainRect(canvasW, canvasH, videoEl) {
+  const vw = videoEl?.videoWidth || 0;
+  const vh = videoEl?.videoHeight || 0;
+  if (!vw || !vh) {
+    return { x: 0, y: 0, w: canvasW, h: canvasH };
+  }
+  const videoAspect = vw / vh;
+  const canvasAspect = canvasW / canvasH;
+  if (videoAspect > canvasAspect) {
+    const w = canvasW;
+    const h = w / videoAspect;
+    return { x: 0, y: (canvasH - h) / 2, w, h };
+  }
+  const h = canvasH;
+  const w = h * videoAspect;
+  return { x: (canvasW - w) / 2, y: 0, w, h };
+}
+
+function getCoverRect(canvasW, canvasH, videoEl) {
+  const vw = videoEl?.videoWidth || 0;
+  const vh = videoEl?.videoHeight || 0;
+  if (!vw || !vh) {
+    return { x: 0, y: 0, w: canvasW, h: canvasH };
+  }
+  const videoAspect = vw / vh;
+  const canvasAspect = canvasW / canvasH;
+  if (videoAspect > canvasAspect) {
+    const h = canvasH;
+    const w = h * videoAspect;
+    return { x: (canvasW - w) / 2, y: 0, w, h };
+  }
+  const w = canvasW;
+  const h = w / videoAspect;
+  return { x: 0, y: (canvasH - h) / 2, w, h };
+}
+
+function normalizeLandmarks(landmarks, videoEl) {
+  if (!Array.isArray(landmarks) || landmarks.length === 0) return [];
+  return landmarks.map((p) => {
+    let x = Number(p?.x);
+    let y = Number(p?.y);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) {
+      x = 0;
+      y = 0;
+    }
+    return {
+      // Backend returns normalized pose landmarks in [0, 1].
+      x: clamp(x, 0, 1),
+      y: clamp(y, 0, 1),
+      visibility: p?.visibility ?? 1,
+    };
+  });
+}
+
+function drawOverlay({ canvas, landmarks, mirrored = true, videoEl = null, uploadMode = false }) {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   if (!landmarks || landmarks.length === 0) return;
 
+  const normalized = normalizeLandmarks(landmarks, videoEl);
+  if (normalized.length === 0) return;
+
   const W = canvas.width;
   const H = canvas.height;
+  // Upload mode uses `object-fit: fill`, camera mode uses `cover` (crop).
+  const rect = uploadMode ? { x: 0, y: 0, w: W, h: H } : getCoverRect(W, H, videoEl);
 
-  // Mirror x only when video is CSS-flipped (camera mode)
-  const pts = landmarks.map((p) => ({
-    x: mirrored ? (1 - p.x) * W : p.x * W,
-    y: p.y * H,
+  const useMirror = !!mirrored;
+
+  const pts = normalized.map((p) => ({
+    x: rect.x + (useMirror ? (1 - p.x) * rect.w : p.x * rect.w),
+    y: rect.y + p.y * rect.h,
     v: p.visibility ?? 1,
   }));
 
-  ctx.lineWidth = Math.max(2, Math.round(W / 400));
+  ctx.lineWidth = Math.max(2, Math.round(rect.w / 400));
   ctx.strokeStyle = "rgba(80, 210, 255, 0.8)";
 
   for (const [a, b] of CONNECTIONS) {
     const pa = pts[a];
     const pb = pts[b];
     if (!pa || !pb) continue;
+    if (pa.v < 0.2 || pb.v < 0.2) continue;
     const alpha = clamp(Math.min(pa.v, pb.v), 0, 1);
     ctx.globalAlpha = 0.15 + 0.85 * alpha;
     ctx.beginPath();
@@ -65,9 +125,11 @@ function drawOverlay({ canvas, landmarks, mirrored = true }) {
   }
   ctx.globalAlpha = 1;
 
-  // draw nodes
+  // draw only stable major joints to reduce visual jitter
   for (const [i, p] of pts.entries()) {
-    const r = Math.max(3, Math.round(W / 220));
+    if (!DRAW_POINT_INDEX_SET.has(i)) continue;
+    if (!p || p.v < 0.2) continue;
+    const r = Math.max(3, Math.round(rect.w / 220));
     const alpha = clamp(p.v, 0, 1);
     ctx.fillStyle = `rgba(255, 205, 80, ${0.18 + 0.75 * alpha})`;
     ctx.beginPath();
@@ -166,7 +228,17 @@ export function createVisualization(els) {
     if (!payload) return;
     if (videoEl) setCanvasSizeToVideo(overlay, videoEl);
 
-    drawOverlay({ canvas: overlay, landmarks: payload.rawLandmarks, mirrored: !uploadMode });
+    // Camera mode uses CSS transform `scaleX(-1)`, upload mode disables it via `video.noMirror`.
+    // Therefore: mirror only when NOT in upload mode.
+    const mirrored = !uploadMode;
+
+    drawOverlay({
+      canvas: overlay,
+      landmarks: payload.landmarks || payload.analysisLandmarks || payload.rawLandmarks,
+      mirrored,
+      videoEl,
+      uploadMode,
+    });
     if (payload.score == null) return;
 
     drawTrajectory({
